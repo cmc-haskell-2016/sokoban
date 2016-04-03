@@ -168,32 +168,36 @@ handleKeys (EventKey (Char 'd') Down _ _) mapStruct = action mapStruct (i, j + 1
 -- Do nothing for all other events.
 handleKeys _ mapStruct = mapStruct
 
-
-
-
-
+checkWin :: SokobanMap -> SokobanMap
+checkWin mapStruct
+        | length boxesCoords == 0 = mapStruct --mihanlg: "Should return new map chosen by user"
+        | otherwise = mapStruct
+        where
+          targetsCoords   = (targets mapStruct)
+          boxesCoords     = (boxes mapStruct)
+          darkboxesCoords = (darkboxes mapStruct)
 
 action :: SokobanMap -> Coord -> Coord -> SokobanMap
 action mapStruct newCoord followCoord
-        | (isWall newCoord wallsCoords) ||
-          ((isBox newCoord boxesCoords) || (isDarkbox newCoord darkboxesCoords)) && ((isBox followCoord boxesCoords) || (isDarkbox followCoord darkboxesCoords)) ||
-          ((isBox newCoord boxesCoords) || (isDarkbox newCoord darkboxesCoords)) && (isWall followCoord wallsCoords)  = mapStruct
+        | (isObject newCoord wallsCoords) ||
+          ((isObject newCoord boxesCoords) || (isObject newCoord darkboxesCoords)) && ((isObject followCoord boxesCoords) || (isObject followCoord darkboxesCoords)) ||
+          ((isObject newCoord boxesCoords) || (isObject newCoord darkboxesCoords)) && (isObject followCoord wallsCoords)  = mapStruct
 
-        | (isBox newCoord boxesCoords) && (not (isWall followCoord wallsCoords)) =
-                mapStruct{player = newCoord
+        | (isObject newCoord boxesCoords) && (not (isObject followCoord wallsCoords)) =
+                checkWin mapStruct{player = newCoord
                          ,steps = stepNumber + 1
-                         ,boxes = if (isTarget followCoord targetsCoords) then (deleteBox newCoord boxesCoords)
+                         ,boxes = if (isObject followCoord targetsCoords) then (deleteBox newCoord boxesCoords)
                                   else (moveBox newCoord followCoord boxesCoords)
-                         ,darkboxes = if (isTarget followCoord targetsCoords) then followCoord : darkboxesCoords
+                         ,darkboxes = if (isObject followCoord targetsCoords) then followCoord : darkboxesCoords
                                       else darkboxesCoords
                          }
 
-        | (isDarkbox newCoord darkboxesCoords) && (not (isWall followCoord wallsCoords)) =
+        | (isObject newCoord darkboxesCoords) && (not (isObject followCoord wallsCoords)) =
                 mapStruct{player = newCoord
                          ,steps = stepNumber + 1
-                         ,boxes = if (isTarget followCoord targetsCoords) then boxesCoords
+                         ,boxes = if (isObject followCoord targetsCoords) then boxesCoords
                                   else followCoord : boxesCoords
-                         ,darkboxes = if (isTarget followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
+                         ,darkboxes = if (isObject followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
                                       else (deleteBox newCoord darkboxesCoords)
                          }
 
@@ -207,24 +211,11 @@ action mapStruct newCoord followCoord
            darkboxesCoords  = (darkboxes mapStruct)
 
 
-
-isWall :: Coord -> [Coord] -> Bool
-isWall (i, j) walls = not (foldr1 (&&) (map (\(a, b) ->
-                                              if (i == a && j == b) then False else True) walls))
-
-isTarget :: Coord -> [Coord] -> Bool
-isTarget (i, j) targets = not (foldr1 (&&) (map (\(a, b) ->
-                                              if (i == a && j == b) then False else True) targets))
-
-isBox :: Coord -> [Coord] -> Bool
-isBox (i, j) boxes = not (foldr(\(a, b) acc -> (not (i == a && j == b)) && acc) True boxes)
-
-isDarkbox :: Coord -> [Coord] -> Bool
-isDarkbox (i, j) darkboxes = not (foldr(\(a, b) acc -> (not (i == a && j == b)) && acc) True darkboxes)
+isObject :: Coord -> [Coord] -> Bool
+isObject (i, j) objects = foldr (\(a, b) acc -> (i == a && j == b) || acc) False objects
 
 moveBox :: Coord -> Coord -> [Coord] -> [Coord]
-moveBox (i, j) (newI, newJ) boxes = map (\(a, b) ->
-                                              if (i == a && j == b) then (newI, newJ) else (a, b)) boxes
+moveBox (i, j) (newI, newJ) boxes = map (\(a, b) -> if (i == a && j == b) then (newI, newJ) else (a, b)) boxes
 
 deleteBox :: Coord -> [Coord] -> [Coord]
 deleteBox (i, j) boxes = filter (\(a, b) -> not (i == a && j == b)) boxes
