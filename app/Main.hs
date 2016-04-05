@@ -164,72 +164,84 @@ makeObjs ((i, j) : xs) pic sizeX sizeY koeff = (translate  x y $ scale koeff koe
 
 
 
+showMenu :: Game -> Game
+showMenu game
+  | st == 0 = game {state = 1}
+  | otherwise = game {state = 0}
+  where st = (state game)
+
+loadNextLevel :: Game -> Game
+loadNextLevel game = game {currMap = newMap, backupMap = newMap, stateBackup = newMap, currNumber = num}
+                      where
+                        maps = (sokobanMaps game)
+                        num = ((currNumber game) + 1) `mod` (length maps)
+                        newMap = maps !! num
+
+startFromBegin :: Game -> Game
+startFromBegin game = game {currMap     = firstMap
+                           ,backupMap   = firstMap
+                           ,stateBackup = firstMap
+                           ,currNumber  = 0
+                           }
+                      where
+                        maps = (sokobanMaps game)
+                        firstMap = maps !! 0
+
+reloadLevel :: Game -> Game
+reloadLevel game = game {currMap = savedMap, stateBackup = savedMap}
+                   where
+                     savedMap = (backupMap game)
+
+makeStepBack :: Game -> Game
+makeStepBack game = game {currMap = savedState}
+                    where
+                      savedState = (stateBackup game)
+
+scaleIn :: Game -> Game
+scaleIn game = game {scaleAll = scAll + 0.1}
+               where
+                 scAll = (scaleAll game)
+
+scaleOut :: Game -> Game
+scaleOut game = game {scaleAll = scAll - 0.1}
+               where
+                 scAll = (scaleAll game)
+
+makeMove :: (Int, Int) -> Game -> Game
+makeMove (di, dj) game = action game (i + di, j + dj) (i + 2*di, j + 2*dj)
+                         where
+                           mapStruct = (currMap game)
+                           i = fst (player mapStruct)
+                           j = snd (player mapStruct)
+
+moveDown :: Game -> Game
+moveDown = makeMove (1, 0)
+
+moveUp :: Game -> Game
+moveUp = makeMove (-1, 0)
+
+moveLeft :: Game -> Game
+moveLeft = makeMove (0, -1)
+
+moveRight :: Game -> Game
+moveRight = makeMove (0, 1)
+
 -- | Respond to key events.
 handleKeys :: Event -> Game -> Game
-
-handleKeys (EventKey (Char 'm') Down _ _) game
-        | st == 0 = game {state = 1}             --open menu
-        | otherwise = game {state = 0}           --close menu
-         where st = (state game)
-
-handleKeys (EventKey (Char '.') Down _ _) game = game {currMap = newMap, backupMap = newMap, stateBackup = newMap, currNumber = num}
-                                                  where
-                                                    maps = (sokobanMaps game)
-                                                    num = ((currNumber game) + 1) `mod` (length maps)
-                                                    newMap = maps !! num
-
-handleKeys (EventKey (Char 'n') Down _ _) game = game {currMap     = firstMap
-                                                      ,backupMap   = firstMap
-                                                      ,stateBackup = firstMap
-                                                      ,currNumber  = 0
-                                                      }
-                                                  where
-                                                    maps = (sokobanMaps game)
-                                                    firstMap = maps !! 0
-
-handleKeys (EventKey (Char 'r') Down _ _) game = game {currMap = savedMap, stateBackup = savedMap}
-                                                  where
-                                                    savedMap = (backupMap game)
-
-handleKeys (EventKey (Char 'p') Down _ _) game = game {currMap = savedState}
-                                                  where
-                                                    savedState = (stateBackup game)
-
-
-handleKeys (EventKey (Char '=') Down _ _) game = game {scaleAll = scAll + 0.1}
-                                                  where
-                                                    scAll = (scaleAll game)
-
-
-handleKeys (EventKey (Char '-') Down _ _) game = game {scaleAll = scAll - 0.1}
-                                                  where
-                                                    scAll = (scaleAll game)
-
-handleKeys (EventKey (Char 's') Down _ _) game = action game (i + 1, j) (i + 2, j)
-                                                        where
-                                                            mapStruct = (currMap game)
-                                                            i = fst (player mapStruct)
-                                                            j = snd (player mapStruct)
-
-handleKeys (EventKey (Char 'w') Down _ _) game = action game (i - 1, j) (i - 2, j)
-                                                        where
-                                                            mapStruct = (currMap game)
-                                                            i = fst (player mapStruct)
-                                                            j = snd (player mapStruct)
-
-handleKeys (EventKey (Char 'a') Down _ _) game = action game (i, j - 1) (i, j - 2)
-                                                        where
-                                                            mapStruct = (currMap game)
-                                                            i = fst (player mapStruct)
-                                                            j = snd (player mapStruct)
-
-handleKeys (EventKey (Char 'd') Down _ _) game = action game (i, j + 1) (i, j + 2)
-                                                        where
-                                                            mapStruct = (currMap game)
-                                                            i = fst (player mapStruct)
-                                                            j = snd (player mapStruct)
-
--- Do nothing for all other events.
+handleKeys (EventKey (Char c) Down _ _) game = case c of
+  'm' -> showMenu game
+  '.' -> loadNextLevel game
+  'n' -> startFromBegin game
+  'r' -> reloadLevel game
+  'p' -> makeStepBack game
+  '=' -> scaleIn game
+  '-' -> scaleOut game
+  's' -> moveDown game
+  'w' -> moveUp game
+  'a' -> moveLeft game
+  'd' -> moveRight game
+  -- Do nothing for all other events.
+  _ -> game
 handleKeys _ game = game
 
 checkWin :: Game -> Game
