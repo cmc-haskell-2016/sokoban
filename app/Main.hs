@@ -3,8 +3,8 @@ module Main where
 import Lib
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
-import Graphics.Gloss.Data.Bitmap
-import Graphics.Gloss.Data.Picture
+import Graphics.Gloss.Data.Bitmap()
+import Graphics.Gloss.Data.Picture()
 
 {-}
 -- | Play a game in a window.
@@ -36,17 +36,28 @@ update _ game = game
 
 type Coord = (Int, Int)
 
-emptyMap = SokobanMap
-                   {size      = 50
-                   ,walls     = []
-                   ,targets   = []
-                   ,boxes     = []
-                   ,darkboxes = []
-                   ,spaces    = []
-                   ,player    = (0,0)
-                   ,steps     = 0
-                   }
-
+--emptyMap = SokobanMap
+--                   {size      = 50
+--                   ,walls     = []
+--                   ,targets   = []
+--                   ,boxes     = []
+--                   ,darkboxes = []
+--                   ,spaces    = []
+--                   ,player    = (0,0)
+--                   ,steps     = 0
+--                   }
+loadMapWithTextures :: MapTextures -> SokobanMap
+loadMapWithTextures  _textures = SokobanMap
+                                {size      = 50
+                                ,walls     = []
+                                ,targets   = []
+                                ,boxes     = []
+                                ,darkboxes = []
+                                ,spaces    = []
+                                ,player    = (0,0)
+                                ,steps     = 0
+                                ,textures = _textures
+                                }
 
 
 
@@ -65,7 +76,7 @@ elemSize = 60   --all element images are 60*60 pixels
 
 
 makeMap :: String -> MapTextures -> Int -> SokobanMap
-makeMap str mapTextures num = snd (foldl check ((0, 0), emptyMap{textures = mapTextures}) str)
+makeMap str mapTextures num = snd (foldl check ((0, 0), loadMapWithTextures mapTextures) str)
       where check ((i, j), mapStruct) symbol
                 | (j == (snd (mapSizes !! num)) - 1) = ((i + 1, 0), addSymbol mapStruct symbol (i, j))
                 | otherwise = ((i, j + 1), addSymbol mapStruct symbol (i, j))
@@ -78,10 +89,10 @@ addSymbol mapStruct symbol coord =
           '#' -> mapStruct{ walls   = coord : walls mapStruct }
           '*' -> mapStruct{ targets = coord : targets mapStruct }
           '$' -> mapStruct{ spaces  = coord : spaces mapStruct }
-          otherwise -> error (show symbol ++ " not recognized")
+          _ -> error (show symbol ++ " not recognized")
 
 makeLevels :: [String] -> MapTextures -> Int -> [SokobanMap]
-makeLevels [] mapTextures num = []
+makeLevels [] _ _ = []
 makeLevels (x : xs) mapTextures num = (makeMap x mapTextures num) : (makeLevels xs mapTextures (num + 1))
 
 loadLevels :: String -> String -> [String]
@@ -103,8 +114,8 @@ makeGame menuStruct maps curr savedMap savedState num = Game {sokobanMaps = maps
                                                              ,scaleAll    = 1.0
                                                              }
 
-makeMenu :: Picture -> Picture -> Menu
-makeMenu menuBg allBg = Menu {menuBackground   = menuBg
+makeMenu :: Picture -> Menu
+makeMenu menuBg = Menu {menuBackground   = menuBg
                              ,labelHeader      = translate (-60)     150 $ scale 0.4 0.4 $ color white $ text "Menu"
                              ,labelScaleInc    = translate (-200)     80 $ scale 0.2 0.2 $ color white $ text "Press '+' to upscale"
                              ,labelScaleDec    = translate (-200)     30 $ scale 0.2 0.2 $ color white $ text "Press '-' to downscale"
@@ -309,10 +320,10 @@ isObject :: Coord -> [Coord] -> Bool
 isObject (i, j) objects = foldr (\(a, b) acc -> (i == a && j == b) || acc) False objects
 
 moveBox :: Coord -> Coord -> [Coord] -> [Coord]
-moveBox (i, j) (newI, newJ) boxes = map (\(a, b) -> if (i == a && j == b) then (newI, newJ) else (a, b)) boxes
+moveBox (i, j) (newI, newJ) _boxes = map (\(a, b) -> if (i == a && j == b) then (newI, newJ) else (a, b)) _boxes
 
 deleteBox :: Coord -> [Coord] -> [Coord]
-deleteBox (i, j) boxes = filter (\(a, b) -> not (i == a && j == b)) boxes
+deleteBox (i, j) _boxes = filter (\(a, b) -> not (i == a && j == b)) _boxes
 
 
 
@@ -329,7 +340,7 @@ main = do
      wall    <- loadBMP "./images/wall.bmp"
      space   <- loadBMP "./images/space.bmp"
      target  <- loadBMP "./images/target.bmp"
-     player  <- loadBMP "./images/player.bmp"
+     _player  <- loadBMP "./images/player.bmp"
      bg      <- loadBMP "./images/background3.bmp"
 
      levels  <- return (makeLevels levelsData
@@ -338,14 +349,14 @@ main = do
                                                ,wallTexture = wall
                                                ,spaceTexture = space
                                                ,targetTexture = target
-                                               ,playerTexture = player
+                                               ,playerTexture = _player
                                                ,bgTexture = bg}
                         0)
 
      menuBg <- loadBMP "./images/menuBg.bmp"
 
-     menu <- return (makeMenu menuBg bg)
-     game <- return (makeGame menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0)
+     _menu <- return (makeMenu menuBg)
+     game <- return (makeGame _menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0)
      play window background fps game render handleKeys update
 
      return ()
