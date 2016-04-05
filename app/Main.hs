@@ -27,28 +27,17 @@ background = white
 fps :: Int
 fps = 60
 
-update :: Float -> SokobanMap -> SokobanMap
-update _ mapStruct = mapStruct
+update :: Float -> Game -> Game
+update _ game = game
 
 --drawing :: Picture -> Picture
 --drawing bitMap = pictures[bitMap, translate (-60) (-60) bitMap, translate 60 60 $ scale 2 2 bitMap]
 
 
 type Coord = (Int, Int)
-data SokobanMap = SokobanMap
-                        {size      :: Int
-                        ,walls     :: [Coord]
-                        ,targets   :: [Coord]
-                        ,boxes     :: [Coord]
-                        ,darkboxes :: [Coord]
-                        ,spaces    :: [Coord]
-                        ,player    :: Coord
-                        ,steps     :: Int
-                        ,textures  :: MapTextures
-                        } deriving Show
 
 emptyMap = SokobanMap
-                   {size      = 60
+                   {size      = 30
                    ,walls     = []
                    ,targets   = []
                    ,boxes     = []
@@ -58,23 +47,16 @@ emptyMap = SokobanMap
                    ,steps     = 0
                    }
 
-data MapTextures = MapTextures
-                  {bgTexture      :: Picture
-                  ,wallTexture    :: Picture
-                  ,spaceTexture   :: Picture
-                  ,boxTexture     :: Picture
-                  ,darkboxTexture :: Picture
-                  ,targetTexture  :: Picture
-                  ,playerTexture  :: Picture
-                  } deriving Show
+
 
 
 mapSizes :: [(Int, Int)]
 mapSizes = [ (9, 8),
-             (9, 8) ]
+             (8, 14),
+             (10, 17)]
 
 elemSize :: Int
-elemSize = 60
+elemSize = 60   --all element images are 60*60 pixels
 
 
 
@@ -82,7 +64,7 @@ elemSize = 60
 
 
 
-makeMap :: String -> MapTextures ->Int -> SokobanMap
+makeMap :: String -> MapTextures -> Int -> SokobanMap
 makeMap str mapTextures num = snd (foldl check ((0, 0), emptyMap{textures = mapTextures}) str)
       where check ((i, j), mapStruct) symbol
                 | (j == (snd (mapSizes !! num)) - 1) = ((i + 1, 0), addSymbol mapStruct symbol (i, j))
@@ -110,31 +92,71 @@ loadLevels (x : xs) buf
       | x == '}'              = buf : (loadLevels xs [])
       | otherwise             = loadLevels xs (buf ++ x : [])
 
+makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Game
+makeGame menuStruct maps curr savedMap savedState num = Game {sokobanMaps = maps
+                                                             ,currMap     = curr
+                                                             ,backupMap   = savedMap
+                                                             ,stateBackup = savedState
+                                                             ,currNumber  = num
+                                                             ,menu        = menuStruct
+                                                             ,state       = 0
+                                                             ,scaleAll    = 1.0
+                                                             }
+
+makeMenu :: Picture -> Picture -> Menu
+makeMenu menuBg allBg = Menu {menuBackground   = menuBg
+                             ,labelHeader      = translate (-60)     150 $ scale 0.4 0.4 $ color white $ text "Menu"
+                             ,labelScaleInc    = translate (-200)     80 $ scale 0.2 0.2 $ color white $ text "Press '+' to upscale"
+                             ,labelScaleDec    = translate (-200)     30 $ scale 0.2 0.2 $ color white $ text "Press '-' to downscale"
+                             ,labelRestart     = translate (-200)  (-20) $ scale 0.2 0.2 $ color white $ text "Press 'r' to restart level"
+                             ,labelRestartGame = translate (-200)  (-70) $ scale 0.2 0.2 $ color white $ text "Press 'n' to restart game"
+                             ,labelPrevState   = translate (-200) (-120) $ scale 0.2 0.2 $ color white $ text "Press 'p' to undo last step"
+                             }
 
 
 
-
-
-
-render :: SokobanMap -> Picture
+render :: Game -> Picture
 -- the sequence of elements in the list (which is the argument for function pictures) shows
 -- how elements will be rendered
-render mapStruct = pictures (map pictures [bg, space, wallObjs, targetObjs, boxObjs, darkboxObjs, playerObj])
-         where
-            bg         = (bgTexture (textures mapStruct)) :[]
-            space      = (translate ((convert (-elemSize)) * 0.5) (convert (-elemSize + 80)) (spaceTexture (textures mapStruct))) :[]
-            wallObjs   = makeObjs (walls mapStruct)          (wallTexture    (textures mapStruct))
-            targetObjs = makeObjs (targets mapStruct)        (targetTexture  (textures mapStruct))
-            boxObjs    = makeObjs (boxes mapStruct)          (boxTexture     (textures mapStruct))
-            darkboxObjs= makeObjs (darkboxes mapStruct)      (darkboxTexture (textures mapStruct))
-            playerObj  = makeObjs ((player mapStruct) : [])  (playerTexture  (textures mapStruct))
+render game
+    | st   == 1 = pictures [pictures bg, menuBg, labelH, labelSI, labelSD, labelR, labelRG, labelPS]
+    | otherwise = pictures (map pictures [bg, wallObjs, targetObjs, boxObjs, darkboxObjs, playerObj])
+     where
+            st         = (state game)
+            menuStruct = (menu game)
+            menuBg     = (menuBackground menuStruct)
+            labelH     = (labelHeader menuStruct)
+            labelSI    = (labelScaleInc menuStruct)
+            labelSD    = (labelScaleDec menuStruct)
+            labelR     = (labelRestart menuStruct)
+            labelRG    = (labelRestartGame menuStruct)
+            labelPS    = (labelPrevState menuStruct)
+
+            mapStruct  = (currMap game)
+            num        = (currNumber game)
+            sizeX      = fst (mapSizes !! num)
+            sizeY      = snd (mapSizes !! num)
+            scAll      = (scaleAll game)
+            currSize   = (size mapStruct)
+            resize     = (convert currSize) / (convert elemSize) * scAll  --koeff
+            bg         = (bgTexture (textures mapStruct)) : []
+            objsTexture= (textures mapStruct)
+
+            wallObjs   = makeObjs (walls mapStruct)          (wallTexture    objsTexture) sizeX sizeY resize
+            targetObjs = makeObjs (targets mapStruct)        (targetTexture  objsTexture) sizeX sizeY resize
+            boxObjs    = makeObjs (boxes mapStruct)          (boxTexture     objsTexture) sizeX sizeY resize
+            darkboxObjs= makeObjs (darkboxes mapStruct)      (darkboxTexture objsTexture) sizeX sizeY resize
+            playerObj  = makeObjs ((player mapStruct) : [])  (playerTexture  objsTexture) sizeX sizeY resize
 
 convert :: Int -> Float
 convert x = fromIntegral (x :: Int) :: Float
 
-makeObjs :: [Coord] -> Picture -> [Picture]
-makeObjs [] _ = []
-makeObjs ((i, j) : xs) pic = (translate (convert (-4 * elemSize + j * elemSize)) (convert (80 + 3 * elemSize + (-i * elemSize))) pic) : makeObjs xs pic
+makeObjs :: [Coord] -> Picture -> Int -> Int -> Float -> [Picture]
+makeObjs [] _ _ _ _= []
+makeObjs ((i, j) : xs) pic sizeX sizeY koeff = (translate  x y $ scale koeff koeff pic) : makeObjs xs pic sizeX sizeY koeff
+          where
+            x = (convert (-(sizeY `div` 2) * elemSize + j * elemSize)) * koeff
+            y = (convert ( (sizeX `div` 2) * elemSize - i * elemSize)) * koeff
 
 
 
@@ -143,63 +165,121 @@ makeObjs ((i, j) : xs) pic = (translate (convert (-4 * elemSize + j * elemSize))
 
 
 -- | Respond to key events.
-handleKeys :: Event -> SokobanMap -> SokobanMap
+handleKeys :: Event -> Game -> Game
 
-handleKeys (EventKey (Char 's') Down _ _) mapStruct = action mapStruct (i + 1, j) (i + 2, j)
+handleKeys (EventKey (Char 'm') Down _ _) game
+        | st == 0 = game {state = 1}             --open menu
+        | otherwise = game {state = 0}           --close menu
+         where st = (state game)
+
+handleKeys (EventKey (Char 'n') Down _ _) game = game {currMap     = firstMap
+                                                      ,backupMap   = firstMap
+                                                      ,stateBackup = firstMap
+                                                      ,currNumber  = 0
+                                                      }
+                                                  where
+                                                    maps = (sokobanMaps game)
+                                                    firstMap = maps !! 0
+
+handleKeys (EventKey (Char 'r') Down _ _) game = game {currMap = savedMap, stateBackup = savedMap}
+                                                  where
+                                                    savedMap = (backupMap game)
+
+handleKeys (EventKey (Char 'p') Down _ _) game = game {currMap = savedState}
+                                                  where
+                                                    savedState = (stateBackup game)
+
+
+handleKeys (EventKey (Char '=') Down _ _) game = game {scaleAll = scAll + 0.1}
+                                                  where
+                                                    scAll = (scaleAll game)
+
+
+handleKeys (EventKey (Char '-') Down _ _) game = game {scaleAll = scAll - 0.1}
+                                                  where
+                                                    scAll = (scaleAll game)
+
+handleKeys (EventKey (Char 's') Down _ _) game = action game (i + 1, j) (i + 2, j)
                                                         where
+                                                            mapStruct = (currMap game)
                                                             i = fst (player mapStruct)
                                                             j = snd (player mapStruct)
 
-handleKeys (EventKey (Char 'w') Down _ _) mapStruct = action mapStruct (i - 1, j) (i - 2, j)
+handleKeys (EventKey (Char 'w') Down _ _) game = action game (i - 1, j) (i - 2, j)
                                                         where
+                                                            mapStruct = (currMap game)
                                                             i = fst (player mapStruct)
                                                             j = snd (player mapStruct)
 
-handleKeys (EventKey (Char 'a') Down _ _) mapStruct = action mapStruct (i, j - 1) (i, j - 2)
+handleKeys (EventKey (Char 'a') Down _ _) game = action game (i, j - 1) (i, j - 2)
                                                         where
+                                                            mapStruct = (currMap game)
                                                             i = fst (player mapStruct)
                                                             j = snd (player mapStruct)
 
-handleKeys (EventKey (Char 'd') Down _ _) mapStruct = action mapStruct (i, j + 1) (i, j + 2)
+handleKeys (EventKey (Char 'd') Down _ _) game = action game (i, j + 1) (i, j + 2)
                                                         where
+                                                            mapStruct = (currMap game)
                                                             i = fst (player mapStruct)
                                                             j = snd (player mapStruct)
 
 -- Do nothing for all other events.
-handleKeys _ mapStruct = mapStruct
+handleKeys _ game = game
 
-
-
-
-
-
-action :: SokobanMap -> Coord -> Coord -> SokobanMap
-action mapStruct newCoord followCoord
-        | (isWall newCoord wallsCoords) ||
-          ((isBox newCoord boxesCoords) || (isDarkbox newCoord darkboxesCoords)) && ((isBox followCoord boxesCoords) || (isDarkbox followCoord darkboxesCoords)) ||
-          ((isBox newCoord boxesCoords) || (isDarkbox newCoord darkboxesCoords)) && (isWall followCoord wallsCoords)  = mapStruct
-
-        | (isBox newCoord boxesCoords) && (not (isWall followCoord wallsCoords)) =
-                mapStruct{player = newCoord
-                         ,steps = stepNumber + 1
-                         ,boxes = if (isTarget followCoord targetsCoords) then (deleteBox newCoord boxesCoords)
-                                  else (moveBox newCoord followCoord boxesCoords)
-                         ,darkboxes = if (isTarget followCoord targetsCoords) then followCoord : darkboxesCoords
-                                      else darkboxesCoords
-                         }
-
-        | (isDarkbox newCoord darkboxesCoords) && (not (isWall followCoord wallsCoords)) =
-                mapStruct{player = newCoord
-                         ,steps = stepNumber + 1
-                         ,boxes = if (isTarget followCoord targetsCoords) then boxesCoords
-                                  else followCoord : boxesCoords
-                         ,darkboxes = if (isTarget followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
-                                      else (deleteBox newCoord darkboxesCoords)
-                         }
-
-
-        | otherwise = mapStruct{player = newCoord, steps = stepNumber + 1}
+checkWin :: Game -> Game
+checkWin game
+        | length boxesCoords == 0 = game{currNumber  = nextNumber
+                                        ,currMap     = newMap
+                                        ,backupMap   = newMap
+                                        ,stateBackup = newMap
+                                        }
+        | otherwise = game
         where
+          num         = (currNumber game)
+          mapStruct   = (currMap game)
+          maps        = (sokobanMaps game)
+          boxesCoords = (boxes mapStruct)
+          nextNumber  = if (num + 1 < length maps) then num + 1
+                        else 0
+          newMap      = maps !! nextNumber
+
+action :: Game -> Coord -> Coord -> Game
+action game newCoord followCoord
+        | (isObject newCoord wallsCoords) ||
+          ((isObject newCoord boxesCoords) || (isObject newCoord darkboxesCoords)) && ((isObject followCoord boxesCoords) || (isObject followCoord darkboxesCoords)) ||
+          ((isObject newCoord boxesCoords) || (isObject newCoord darkboxesCoords)) && (isObject followCoord wallsCoords)  = game
+
+        | (isObject newCoord boxesCoords) && (not (isObject followCoord wallsCoords)) =
+            checkWin game {currMap = mapStruct {player = newCoord
+                                                ,steps = stepNumber + 1
+                                                ,boxes = if (isObject followCoord targetsCoords) then (deleteBox newCoord boxesCoords)
+                                                         else (moveBox newCoord followCoord boxesCoords)
+                                                ,darkboxes = if (isObject followCoord targetsCoords) then followCoord : darkboxesCoords
+                                                             else darkboxesCoords
+                                                }
+                          ,stateBackup = mapStruct
+                          }
+
+        | (isObject newCoord darkboxesCoords) && (not (isObject followCoord wallsCoords)) =
+            checkWin game {currMap = mapStruct {player = newCoord
+                                               ,steps = stepNumber + 1
+                                               ,boxes = if (isObject followCoord targetsCoords) then boxesCoords
+                                                        else followCoord : boxesCoords
+                                               ,darkboxes = if (isObject followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
+                                                            else (deleteBox newCoord darkboxesCoords)
+                                               }
+                          ,stateBackup = mapStruct
+                          }
+
+
+
+        | otherwise = game {currMap = mapStruct {player = newCoord
+                                                ,steps = stepNumber + 1
+                                                }
+                           ,stateBackup = mapStruct
+                           }
+        where
+           mapStruct        = (currMap game)
            wallsCoords      = (walls   mapStruct)
            targetsCoords    = (targets mapStruct)
            boxesCoords      = (boxes   mapStruct)
@@ -207,27 +287,16 @@ action mapStruct newCoord followCoord
            darkboxesCoords  = (darkboxes mapStruct)
 
 
-
-isWall :: Coord -> [Coord] -> Bool
-isWall (i, j) walls = not (foldr1 (&&) (map (\(a, b) ->
-                                              if (i == a && j == b) then False else True) walls))
-
-isTarget :: Coord -> [Coord] -> Bool
-isTarget (i, j) targets = not (foldr1 (&&) (map (\(a, b) ->
-                                              if (i == a && j == b) then False else True) targets))
-
-isBox :: Coord -> [Coord] -> Bool
-isBox (i, j) boxes = not (foldr(\(a, b) acc -> (not (i == a && j == b)) && acc) True boxes)
-
-isDarkbox :: Coord -> [Coord] -> Bool
-isDarkbox (i, j) darkboxes = not (foldr(\(a, b) acc -> (not (i == a && j == b)) && acc) True darkboxes)
+isObject :: Coord -> [Coord] -> Bool
+isObject (i, j) objects = foldr (\(a, b) acc -> (i == a && j == b) || acc) False objects
 
 moveBox :: Coord -> Coord -> [Coord] -> [Coord]
-moveBox (i, j) (newI, newJ) boxes = map (\(a, b) ->
-                                              if (i == a && j == b) then (newI, newJ) else (a, b)) boxes
+moveBox (i, j) (newI, newJ) boxes = map (\(a, b) -> if (i == a && j == b) then (newI, newJ) else (a, b)) boxes
 
 deleteBox :: Coord -> [Coord] -> [Coord]
 deleteBox (i, j) boxes = filter (\(a, b) -> not (i == a && j == b)) boxes
+
+
 
 
 
@@ -237,26 +306,28 @@ main = do
      src <- readFile "levels.txt"
      levelsData <- return (loadLevels src [])   -- converts any object to IO object
 
-     box <- loadBMP "./images/box.bmp"
+     box     <- loadBMP "./images/box.bmp"
      darkbox <- loadBMP "./images/darkbox.bmp"
-     wall <- loadBMP "./images/wall.bmp"
-     space <- loadBMP "./images/space.bmp"
-     target <- loadBMP "./images/target.bmp"
-     player <- loadBMP "./images/player.bmp"
-     bg <- loadBMP "./images/background3.bmp"
+     wall    <- loadBMP "./images/wall.bmp"
+     space   <- loadBMP "./images/space.bmp"
+     target  <- loadBMP "./images/target.bmp"
+     player  <- loadBMP "./images/player.bmp"
+     bg      <- loadBMP "./images/background3.bmp"
 
-     levels <- return (makeLevels levelsData
-                                  MapTextures{boxTexture = box
-                                              ,darkboxTexture = darkbox
-                                              ,wallTexture = wall
-                                              ,spaceTexture = space
-                                              ,targetTexture = target
-                                              ,playerTexture = player
-                                              ,bgTexture = bg}
-                                  0)
-     putStrLn (show (levels !! 0))
-     --img <- loadBMP "./images/box.bmp"
-     --display window background (drawing img)
-     --display window background (render (levels !! 0))
-     play window background fps (levels !! 0) render handleKeys update
+     levels  <- return (makeLevels levelsData
+                                  MapTextures {boxTexture = box
+                                               ,darkboxTexture = darkbox
+                                               ,wallTexture = wall
+                                               ,spaceTexture = space
+                                               ,targetTexture = target
+                                               ,playerTexture = player
+                                               ,bgTexture = bg}
+                        0)
+
+     menuBg <- loadBMP "./images/menuBg.bmp"
+
+     menu <- return (makeMenu menuBg bg)
+     game <- return (makeGame menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0)
+     play window background fps game render handleKeys update
+
      return ()
