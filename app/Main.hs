@@ -37,7 +37,7 @@ update _ game = game
 type Coord = (Int, Int)
 
 emptyMap = SokobanMap
-                   {size      = 30
+                   {size      = 50
                    ,walls     = []
                    ,targets   = []
                    ,boxes     = []
@@ -172,6 +172,12 @@ handleKeys (EventKey (Char 'm') Down _ _) game
         | otherwise = game {state = 0}           --close menu
          where st = (state game)
 
+handleKeys (EventKey (Char '.') Down _ _) game = game {currMap = newMap, backupMap = newMap, stateBackup = newMap, currNumber = num}
+                                                  where
+                                                    maps = (sokobanMaps game)
+                                                    num = ((currNumber game) + 1) `mod` (length maps)
+                                                    newMap = maps !! num
+
 handleKeys (EventKey (Char 'n') Down _ _) game = game {currMap     = firstMap
                                                       ,backupMap   = firstMap
                                                       ,stateBackup = firstMap
@@ -239,8 +245,8 @@ checkWin game
           mapStruct   = (currMap game)
           maps        = (sokobanMaps game)
           boxesCoords = (boxes mapStruct)
-          nextNumber  = if (num + 1 < length maps) then num + 1
-                        else 0
+          nextNumber  = (num + 1) `mod` (length maps)
+
           newMap      = maps !! nextNumber
 
 action :: Game -> Coord -> Coord -> Game
