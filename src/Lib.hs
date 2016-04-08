@@ -3,6 +3,7 @@ module Lib (
   ,Game(..)
   ,SokobanMap(..)
   ,MapTextures(..)
+  ,Coord
 ) where
 
 import Graphics.Gloss.Data.Picture

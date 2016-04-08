@@ -33,9 +33,6 @@ update _ game = game
 --drawing :: Picture -> Picture
 --drawing bitMap = pictures[bitMap, translate (-60) (-60) bitMap, translate 60 60 $ scale 2 2 bitMap]
 
-
-type Coord = (Int, Int)
-
 --emptyMap = SokobanMap
 --                   {size      = 50
 --                   ,walls     = []
