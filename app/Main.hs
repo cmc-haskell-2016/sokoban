@@ -59,7 +59,8 @@ loadMapWithTextures  _textures = SokobanMap
 
 
 mapSizes :: [(Int, Int)]
-mapSizes = [ (9, 8),
+mapSizes = [ (5, 5),
+             (9, 8),
              (8, 14),
              (10, 17)]
 
