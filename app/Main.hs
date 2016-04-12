@@ -57,6 +57,7 @@ loadMapWithTextures  _textures = SokobanMap
                                 ,player    = (0,0)
                                 ,steps     = 0
                                 ,textures = _textures
+                                ,previousMap = Nothing
                                 }
 
 
@@ -107,7 +108,6 @@ makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> In
 makeGame menuStruct maps curr savedMap savedState num = Game {sokobanMaps = maps
                                                              ,currMap     = curr
                                                              ,backupMap   = savedMap
-                                                             ,stateBackup = savedState
                                                              ,currNumber  = num
                                                              ,menu        = menuStruct
                                                              ,state       = 0
@@ -182,7 +182,7 @@ showMenu game
   where st = (state game)
 
 loadNextLevel :: Game -> Game
-loadNextLevel game = game {currMap = newMap, backupMap = newMap, stateBackup = newMap, currNumber = num}
+loadNextLevel game = game {currMap = newMap, backupMap = newMap, currNumber = num}
                       where
                         maps = (sokobanMaps game)
                         num = ((currNumber game) + 1) `mod` (length maps)
@@ -191,7 +191,6 @@ loadNextLevel game = game {currMap = newMap, backupMap = newMap, stateBackup = n
 startFromBegin :: Game -> Game
 startFromBegin game = game {currMap     = firstMap
                            ,backupMap   = firstMap
-                           ,stateBackup = firstMap
                            ,currNumber  = 0
                            }
                       where
@@ -199,14 +198,16 @@ startFromBegin game = game {currMap     = firstMap
                         firstMap = maps !! 0
 
 reloadLevel :: Game -> Game
-reloadLevel game = game {currMap = savedMap, stateBackup = savedMap}
+reloadLevel game = game {currMap = savedMap}
                    where
                      savedMap = (backupMap game)
 
 makeStepBack :: Game -> Game
 makeStepBack game = game {currMap = savedState}
                     where
-                      savedState = (stateBackup game)
+                      savedState = case (previousMap (currMap game)) of
+                        Nothing -> (currMap game)
+                        Just state -> state
 
 scaleIn :: Game -> Game
 scaleIn game = game {scaleAll = scAll + 0.1}
@@ -260,7 +261,6 @@ checkWin game
         | length boxesCoords == 0 = game{currNumber  = nextNumber
                                         ,currMap     = newMap
                                         ,backupMap   = newMap
-                                        ,stateBackup = newMap
                                         }
         | otherwise = game
         where
@@ -285,8 +285,8 @@ action game newCoord followCoord
                                                          else (moveBox newCoord followCoord boxesCoords)
                                                 ,darkboxes = if (isObject followCoord targetsCoords) then followCoord : darkboxesCoords
                                                              else darkboxesCoords
+                                                ,previousMap = Just mapStruct
                                                 }
-                          ,stateBackup = mapStruct
                           }
 
         | (isObject newCoord darkboxesCoords) && (not (isObject followCoord wallsCoords)) =
@@ -296,16 +296,16 @@ action game newCoord followCoord
                                                         else followCoord : boxesCoords
                                                ,darkboxes = if (isObject followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
                                                             else (deleteBox newCoord darkboxesCoords)
+                                               ,previousMap = Just mapStruct
                                                }
-                          ,stateBackup = mapStruct
                           }
 
 
 
         | otherwise = game {currMap = mapStruct {player = newCoord
                                                 ,steps = stepNumber + 1
+                                                ,previousMap = Just mapStruct
                                                 }
-                           ,stateBackup = mapStruct
                            }
         where
            mapStruct        = (currMap game)
