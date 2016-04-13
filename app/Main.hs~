@@ -111,7 +111,7 @@ makeGame menuStruct maps curr savedMap savedState num step_num = Game {sokobanMa
                                                              ,state       = 0
                                                              ,scaleAll    = 1.0
 															 ,steps		  = step_num
-															 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
+															 ,labelSteps  = translate (-15)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
                                                              }
 
 makeMenu :: Picture -> Menu
@@ -200,12 +200,12 @@ startFromBegin game = game {currMap     = firstMap
                         firstMap = maps !! 0
 
 reloadLevel :: Game -> Game
-reloadLevel game = game {currMap = savedMap, steps = 0 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text "0"}
+reloadLevel game = game {currMap = savedMap, steps = 0 ,labelSteps  = translate (-15)    230 $ scale 0.4 0.4 $ color white $ text "0"}
                    where
                      savedMap = (backupMap game)
 
 makeStepBack :: Game -> Game
-makeStepBack game = game {currMap = savedState, steps = (steps game) - 1 , labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show ((steps game) - 1))}
+makeStepBack game = game {currMap = savedState, steps = (steps game) - 1 , labelSteps  = translate (-15)    230 $ scale 0.4 0.4 $ color white $ text (show ((steps game) - 1))}
                     where
                       savedState = case (previousMap (currMap game)) of
                         Nothing -> (currMap game)
@@ -289,7 +289,7 @@ action game newCoord followCoord
                                                 ,previousMap = Just mapStruct
                                                 }
 												,steps = stepNumber + 1
-												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+												,labelSteps  = translate (-15)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
 												
                           }
 
@@ -302,7 +302,7 @@ action game newCoord followCoord
                                                ,previousMap = Just mapStruct	
                                                }
 											   ,steps = stepNumber + 1
-											   ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+											   ,labelSteps  = translate (-15)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
                           }
 
 
@@ -312,7 +312,7 @@ action game newCoord followCoord
                                                 ,previousMap = Just mapStruct
                                                 }
 												,steps = stepNumber + 1
-												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+												,labelSteps  = translate (-15)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
                            }
         where
            mapStruct        = (currMap game)
