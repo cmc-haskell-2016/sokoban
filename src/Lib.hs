@@ -18,8 +18,9 @@ data Game = Game
                 ,menu        :: Menu
                 ,state       :: Int   -- 0 if currMap, 1 if Menu
                 ,scaleAll    :: Float
-				,steps		 :: Int
-				,labelSteps  :: Picture
+                ,textures    :: MapTextures
+				        ,steps	   	 :: Int
+				        ,labelSteps  :: Picture
                 } deriving Show
 
 data Menu = Menu
@@ -40,7 +41,6 @@ data SokobanMap = SokobanMap
                           ,darkboxes :: [Coord]
                           ,spaces    :: [Coord]
                           ,player    :: Coord
-                          ,textures  :: MapTextures
                           ,previousMap :: Maybe SokobanMap
                           } deriving Show
 

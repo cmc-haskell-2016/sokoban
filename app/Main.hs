@@ -1,3 +1,4 @@
+
 module Main where
 
 import Lib
@@ -46,8 +47,8 @@ type Coord = (Int, Int)
 --                   ,player    = (0,0)
 --                   ,steps     = 0
 --                   }
-loadMapWithTextures :: MapTextures -> SokobanMap
-loadMapWithTextures  _textures = SokobanMap
+loadMap :: SokobanMap
+loadMap  = SokobanMap
                                 {size      = 50
                                 ,walls     = []
                                 ,targets   = []
@@ -55,7 +56,6 @@ loadMapWithTextures  _textures = SokobanMap
                                 ,darkboxes = []
                                 ,spaces    = []
                                 ,player    = (0,0)
-                                ,textures = _textures
                                 ,previousMap = Nothing
                                 }
 
@@ -75,8 +75,8 @@ elemSize = 60   --all element images are 60*60 pixels
 
 
 
-makeMap :: String -> MapTextures -> Int -> SokobanMap
-makeMap str mapTextures num = snd (foldl check ((0, 0), loadMapWithTextures mapTextures) str)
+makeMap :: String -> Int -> SokobanMap
+makeMap str num = snd (foldl check ((0, 0), loadMap) str)
       where check ((i, j), mapStruct) symbol
                 | (j == (snd (mapSizes !! num)) - 1) = ((i + 1, 0), addSymbol mapStruct symbol (i, j))
                 | otherwise = ((i, j + 1), addSymbol mapStruct symbol (i, j))
@@ -93,7 +93,7 @@ addSymbol mapStruct symbol coord =
 
 makeLevels :: [String] -> MapTextures -> Int -> [SokobanMap]
 makeLevels [] _ _ = []
-makeLevels (x : xs) mapTextures num = (makeMap x mapTextures num) : (makeLevels xs mapTextures (num + 1))
+makeLevels (x : xs) mapTextures num = (makeMap x  num) : (makeLevels xs mapTextures (num + 1))
 loadLevels :: String -> String -> [String]
 loadLevels [] [] = []
 loadLevels [] _ = []
@@ -102,16 +102,17 @@ loadLevels (x : xs) buf
       | x == '}'              = buf : (loadLevels xs [])
       | otherwise             = loadLevels xs (buf ++ x : [])
 
-makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Int -> Game
-makeGame menuStruct maps curr savedMap savedState num step_num = Game {sokobanMaps = maps
+makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Int -> MapTextures -> Game
+makeGame menuStruct maps curr savedMap savedState num step_num mapTextures= Game {sokobanMaps = maps
                                                              ,currMap     = curr
                                                              ,backupMap   = savedMap
                                                              ,currNumber  = num
                                                              ,menu        = menuStruct
                                                              ,state       = 0
                                                              ,scaleAll    = 1.0
-															 ,steps		  = step_num
-															 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
+                                                             ,textures    = mapTextures
+															                               ,steps		    = step_num
+															                               ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
                                                              }
 
 makeMenu :: Picture -> Menu
@@ -150,8 +151,8 @@ render game
             scAll      = (scaleAll game)
             currSize   = (size mapStruct)
             resize     = (convert currSize) / (convert elemSize) * scAll  --koeff
-            bg         = (bgTexture (textures mapStruct)) : []
-            objsTexture= (textures mapStruct)
+            bg         = (bgTexture (textures game)) : []
+            objsTexture= (textures game)
 
             wallObjs   = makeObjs (walls mapStruct)          (wallTexture    objsTexture) sizeX sizeY resize
             targetObjs = makeObjs (targets mapStruct)        (targetTexture  objsTexture) sizeX sizeY resize
@@ -290,7 +291,7 @@ action game newCoord followCoord
                                                 }
 												,steps = stepNumber + 1
 												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
-												
+
                           }
 
         | (isObject newCoord darkboxesCoords) && (not (isObject followCoord wallsCoords)) =
@@ -299,7 +300,7 @@ action game newCoord followCoord
                                                         else followCoord : boxesCoords
                                                ,darkboxes = if (isObject followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
                                                             else (deleteBox newCoord darkboxesCoords)
-                                               ,previousMap = Just mapStruct	
+                                               ,previousMap = Just mapStruct
                                                }
 											   ,steps = stepNumber + 1
 											   ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
@@ -363,7 +364,13 @@ main = do
      menuBg <- loadBMP "./images/menuBg.bmp"
 
      _menu <- return (makeMenu menuBg)
-     game <- return (makeGame _menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0 0)
+     game <- return (makeGame _menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0 0 MapTextures {boxTexture = box
+                  ,darkboxTexture = darkbox
+                  ,wallTexture = wall
+                  ,spaceTexture = space
+                  ,targetTexture = target
+                  ,playerTexture = _player
+                  ,bgTexture = bg})
      play window background fps game render handleKeys update
 
      return ()
