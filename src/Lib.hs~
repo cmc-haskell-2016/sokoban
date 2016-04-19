@@ -19,7 +19,6 @@ data Game = Game
                 ,state       :: Int   -- 0 if currMap, 1 if Menu
                 ,scaleAll    :: Float
 				,steps		 :: Int
-				,labelSteps  :: Picture
                 } deriving Show
 
 data Menu = Menu
@@ -30,6 +29,7 @@ data Menu = Menu
                 ,labelRestart     :: Picture
                 ,labelRestartGame :: Picture
                 ,labelPrevState   :: Picture
+				,labelSteps  :: Picture
                 } deriving Show
 
 data SokobanMap = SokobanMap
