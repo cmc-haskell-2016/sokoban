@@ -3,8 +3,8 @@ module Main where
 import Lib
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
-import Graphics.Gloss.Data.Bitmap()
-import Graphics.Gloss.Data.Picture()
+import Graphics.Gloss.Data.Bitmap
+import Graphics.Gloss.Data.Picture
 
 {-}
 -- | Play a game in a window.
@@ -36,28 +36,17 @@ update _ game = game
 
 type Coord = (Int, Int)
 
---emptyMap = SokobanMap
---                   {size      = 50
---                   ,walls     = []
---                   ,targets   = []
---                   ,boxes     = []
---                   ,darkboxes = []
---                   ,spaces    = []
---                   ,player    = (0,0)
---                   ,steps     = 0
---                   }
-loadMapWithTextures :: MapTextures -> SokobanMap
-loadMapWithTextures  _textures = SokobanMap
-                                {size      = 50
-                                ,walls     = []
-                                ,targets   = []
-                                ,boxes     = []
-                                ,darkboxes = []
-                                ,spaces    = []
-                                ,player    = (0,0)
-                                ,textures = _textures
-                                ,previousMap = Nothing
-                                }
+emptyMap = SokobanMap
+                   {size      = 30
+                   ,walls     = []
+                   ,targets   = []
+                   ,boxes     = []
+                   ,darkboxes = []
+                   ,spaces    = []
+                   ,player    = (0,0)
+                   ,steps     = 0
+                   }
+
 
 
 
@@ -76,7 +65,7 @@ elemSize = 60   --all element images are 60*60 pixels
 
 
 makeMap :: String -> MapTextures -> Int -> SokobanMap
-makeMap str mapTextures num = snd (foldl check ((0, 0), loadMapWithTextures mapTextures) str)
+makeMap str mapTextures num = snd (foldl check ((0, 0), emptyMap{textures = mapTextures}) str)
       where check ((i, j), mapStruct) symbol
                 | (j == (snd (mapSizes !! num)) - 1) = ((i + 1, 0), addSymbol mapStruct symbol (i, j))
                 | otherwise = ((i, j + 1), addSymbol mapStruct symbol (i, j))
@@ -89,11 +78,12 @@ addSymbol mapStruct symbol coord =
           '#' -> mapStruct{ walls   = coord : walls mapStruct }
           '*' -> mapStruct{ targets = coord : targets mapStruct }
           '$' -> mapStruct{ spaces  = coord : spaces mapStruct }
-          _ -> error (show symbol ++ " not recognized")
+          otherwise -> error (show symbol ++ " not recognized")
 
 makeLevels :: [String] -> MapTextures -> Int -> [SokobanMap]
-makeLevels [] _ _ = []
+makeLevels [] mapTextures num = []
 makeLevels (x : xs) mapTextures num = (makeMap x mapTextures num) : (makeLevels xs mapTextures (num + 1))
+
 loadLevels :: String -> String -> [String]
 loadLevels [] [] = []
 loadLevels [] _ = []
@@ -102,20 +92,19 @@ loadLevels (x : xs) buf
       | x == '}'              = buf : (loadLevels xs [])
       | otherwise             = loadLevels xs (buf ++ x : [])
 
-makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Int -> Game
-makeGame menuStruct maps curr savedMap savedState num step_num = Game {sokobanMaps = maps
+makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Game
+makeGame menuStruct maps curr savedMap savedState num = Game {sokobanMaps = maps
                                                              ,currMap     = curr
                                                              ,backupMap   = savedMap
+                                                             ,stateBackup = savedState
                                                              ,currNumber  = num
                                                              ,menu        = menuStruct
                                                              ,state       = 0
                                                              ,scaleAll    = 1.0
-															 ,steps		  = step_num
-															 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
                                                              }
 
-makeMenu :: Picture -> Menu
-makeMenu menuBg = Menu {menuBackground   = menuBg
+makeMenu :: Picture -> Picture -> Menu
+makeMenu menuBg allBg = Menu {menuBackground   = menuBg
                              ,labelHeader      = translate (-60)     150 $ scale 0.4 0.4 $ color white $ text "Menu"
                              ,labelScaleInc    = translate (-200)     80 $ scale 0.2 0.2 $ color white $ text "Press '+' to upscale"
                              ,labelScaleDec    = translate (-200)     30 $ scale 0.2 0.2 $ color white $ text "Press '-' to downscale"
@@ -131,7 +120,7 @@ render :: Game -> Picture
 -- how elements will be rendered
 render game
     | st   == 1 = pictures [pictures bg, menuBg, labelH, labelSI, labelSD, labelR, labelRG, labelPS]
-    | otherwise = pictures (map pictures [bg, wallObjs, targetObjs, boxObjs, darkboxObjs, playerObj] ++ [(labelSteps game)])
+    | otherwise = pictures (map pictures [bg, wallObjs, targetObjs, boxObjs, darkboxObjs, playerObj])
      where
             st         = (state game)
             menuStruct = (menu game)
@@ -175,87 +164,66 @@ makeObjs ((i, j) : xs) pic sizeX sizeY koeff = (translate  x y $ scale koeff koe
 
 
 
-showMenu :: Game -> Game
-showMenu game
-  | st == 0 = game {state = 1}
-  | otherwise = game {state = 0}
-  where st = (state game)
-
-loadNextLevel :: Game -> Game
-loadNextLevel game = game {currMap = newMap, backupMap = newMap, currNumber = num, steps = 0}
-                      where
-                        maps = (sokobanMaps game)
-                        num = ((currNumber game) + 1) `mod` (length maps)
-                        newMap = maps !! num
-
-startFromBegin :: Game -> Game
-startFromBegin game = game {currMap     = firstMap
-                           ,backupMap   = firstMap
-                           ,currNumber  = 0
-					       ,steps       = 0
-						   ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text "0"
-                           }
-                      where
-                        maps = (sokobanMaps game)
-                        firstMap = maps !! 0
-
-reloadLevel :: Game -> Game
-reloadLevel game = game {currMap = savedMap, steps = 0 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text "0"}
-                   where
-                     savedMap = (backupMap game)
-
-makeStepBack :: Game -> Game
-makeStepBack game = game {currMap = savedState, steps = (steps game) - 1 , labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show ((steps game) - 1))}
-                    where
-                      savedState = case (previousMap (currMap game)) of
-                        Nothing -> (currMap game)
-                        Just state -> state
-
-scaleIn :: Game -> Game
-scaleIn game = game {scaleAll = scAll + 0.1}
-               where
-                 scAll = (scaleAll game)
-
-scaleOut :: Game -> Game
-scaleOut game = game {scaleAll = scAll - 0.1}
-               where
-                 scAll = (scaleAll game)
-
-makeMove :: (Int, Int) -> Game -> Game
-makeMove (di, dj) game = action game (i + di, j + dj) (i + 2*di, j + 2*dj)
-                         where
-                           mapStruct = (currMap game)
-                           i = fst (player mapStruct)
-                           j = snd (player mapStruct)
-
-moveDown :: Game -> Game
-moveDown = makeMove (1, 0)
-
-moveUp :: Game -> Game
-moveUp = makeMove (-1, 0)
-
-moveLeft :: Game -> Game
-moveLeft = makeMove (0, -1)
-
-moveRight :: Game -> Game
-moveRight = makeMove (0, 1)
-
 -- | Respond to key events.
 handleKeys :: Event -> Game -> Game
-handleKeys (EventKey (Char c) Down _ _) game = case c of
-  'm' -> showMenu game
-  '.' -> loadNextLevel game
-  'n' -> startFromBegin game
-  'r' -> reloadLevel game
-  'p' -> makeStepBack game
-  '=' -> scaleIn game
-  '-' -> scaleOut game
-  's' -> moveDown game
-  'w' -> moveUp game
-  'a' -> moveLeft game
-  'd' -> moveRight game
-  -- Do nothing for all other events.
-  _ -> game
+
+handleKeys (EventKey (Char 'm') Down _ _) game
+        | st == 0 = game {state = 1}             --open menu
+        | otherwise = game {state = 0}           --close menu
+         where st = (state game)
+
+handleKeys (EventKey (Char 'n') Down _ _) game = game {currMap     = firstMap
+                                                      ,backupMap   = firstMap
+                                                      ,stateBackup = firstMap
+                                                      ,currNumber  = 0
+                                                      }
+                                                  where
+                                                    maps = (sokobanMaps game)
+                                                    firstMap = maps !! 0
+
+handleKeys (EventKey (Char 'r') Down _ _) game = game {currMap = savedMap, stateBackup = savedMap}
+                                                  where
+                                                    savedMap = (backupMap game)
+
+handleKeys (EventKey (Char 'p') Down _ _) game = game {currMap = savedState}
+                                                  where
+                                                    savedState = (stateBackup game)
+
+
+handleKeys (EventKey (Char '=') Down _ _) game = game {scaleAll = scAll + 0.1}
+                                                  where
+                                                    scAll = (scaleAll game)
+
+
+handleKeys (EventKey (Char '-') Down _ _) game = game {scaleAll = scAll - 0.1}
+                                                  where
+                                                    scAll = (scaleAll game)
+
+handleKeys (EventKey (Char 's') Down _ _) game = action game (i + 1, j) (i + 2, j)
+                                                        where
+                                                            mapStruct = (currMap game)
+                                                            i = fst (player mapStruct)
+                                                            j = snd (player mapStruct)
+
+handleKeys (EventKey (Char 'w') Down _ _) game = action game (i - 1, j) (i - 2, j)
+                                                        where
+                                                            mapStruct = (currMap game)
+                                                            i = fst (player mapStruct)
+                                                            j = snd (player mapStruct)
+
+handleKeys (EventKey (Char 'a') Down _ _) game = action game (i, j - 1) (i, j - 2)
+                                                        where
+                                                            mapStruct = (currMap game)
+                                                            i = fst (player mapStruct)
+                                                            j = snd (player mapStruct)
+
+handleKeys (EventKey (Char 'd') Down _ _) game = action game (i, j + 1) (i, j + 2)
+                                                        where
+                                                            mapStruct = (currMap game)
+                                                            i = fst (player mapStruct)
+                                                            j = snd (player mapStruct)
+
+-- Do nothing for all other events.
 handleKeys _ game = game
 
 checkWin :: Game -> Game
@@ -263,6 +231,7 @@ checkWin game
         | length boxesCoords == 0 = game{currNumber  = nextNumber
                                         ,currMap     = newMap
                                         ,backupMap   = newMap
+                                        ,stateBackup = newMap
                                         }
         | otherwise = game
         where
@@ -270,8 +239,8 @@ checkWin game
           mapStruct   = (currMap game)
           maps        = (sokobanMaps game)
           boxesCoords = (boxes mapStruct)
-          nextNumber  = (num + 1) `mod` (length maps)
-
+          nextNumber  = if (num + 1 < length maps) then num + 1
+                        else 0
           newMap      = maps !! nextNumber
 
 action :: Game -> Coord -> Coord -> Game
@@ -282,44 +251,39 @@ action game newCoord followCoord
 
         | (isObject newCoord boxesCoords) && (not (isObject followCoord wallsCoords)) =
             checkWin game {currMap = mapStruct {player = newCoord
+                                                ,steps = stepNumber + 1
                                                 ,boxes = if (isObject followCoord targetsCoords) then (deleteBox newCoord boxesCoords)
                                                          else (moveBox newCoord followCoord boxesCoords)
                                                 ,darkboxes = if (isObject followCoord targetsCoords) then followCoord : darkboxesCoords
                                                              else darkboxesCoords
-                                                ,previousMap = Just mapStruct
                                                 }
-												,steps = stepNumber + 1
-												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
-												
+                          ,stateBackup = mapStruct
                           }
 
         | (isObject newCoord darkboxesCoords) && (not (isObject followCoord wallsCoords)) =
             checkWin game {currMap = mapStruct {player = newCoord
+                                               ,steps = stepNumber + 1
                                                ,boxes = if (isObject followCoord targetsCoords) then boxesCoords
                                                         else followCoord : boxesCoords
                                                ,darkboxes = if (isObject followCoord targetsCoords) then (moveBox newCoord followCoord darkboxesCoords)
                                                             else (deleteBox newCoord darkboxesCoords)
-                                               ,previousMap = Just mapStruct	
                                                }
-											   ,steps = stepNumber + 1
-											   ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+                          ,stateBackup = mapStruct
                           }
 
 
 
         | otherwise = game {currMap = mapStruct {player = newCoord
-                                                --,steps = stepNumber + 1
-                                                ,previousMap = Just mapStruct
+                                                ,steps = stepNumber + 1
                                                 }
-												,steps = stepNumber + 1
-												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+                           ,stateBackup = mapStruct
                            }
         where
            mapStruct        = (currMap game)
            wallsCoords      = (walls   mapStruct)
            targetsCoords    = (targets mapStruct)
            boxesCoords      = (boxes   mapStruct)
-           stepNumber       = (steps   game)
+           stepNumber       = (steps   mapStruct)
            darkboxesCoords  = (darkboxes mapStruct)
 
 
@@ -327,10 +291,10 @@ isObject :: Coord -> [Coord] -> Bool
 isObject (i, j) objects = foldr (\(a, b) acc -> (i == a && j == b) || acc) False objects
 
 moveBox :: Coord -> Coord -> [Coord] -> [Coord]
-moveBox (i, j) (newI, newJ) _boxes = map (\(a, b) -> if (i == a && j == b) then (newI, newJ) else (a, b)) _boxes
+moveBox (i, j) (newI, newJ) boxes = map (\(a, b) -> if (i == a && j == b) then (newI, newJ) else (a, b)) boxes
 
 deleteBox :: Coord -> [Coord] -> [Coord]
-deleteBox (i, j) _boxes = filter (\(a, b) -> not (i == a && j == b)) _boxes
+deleteBox (i, j) boxes = filter (\(a, b) -> not (i == a && j == b)) boxes
 
 
 
@@ -347,7 +311,7 @@ main = do
      wall    <- loadBMP "./images/wall.bmp"
      space   <- loadBMP "./images/space.bmp"
      target  <- loadBMP "./images/target.bmp"
-     _player  <- loadBMP "./images/player.bmp"
+     player  <- loadBMP "./images/player.bmp"
      bg      <- loadBMP "./images/background3.bmp"
 
      levels  <- return (makeLevels levelsData
@@ -356,14 +320,14 @@ main = do
                                                ,wallTexture = wall
                                                ,spaceTexture = space
                                                ,targetTexture = target
-                                               ,playerTexture = _player
+                                               ,playerTexture = player
                                                ,bgTexture = bg}
                         0)
 
      menuBg <- loadBMP "./images/menuBg.bmp"
 
-     _menu <- return (makeMenu menuBg)
-     game <- return (makeGame _menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0 0)
+     menu <- return (makeMenu menuBg bg)
+     game <- return (makeGame menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0)
      play window background fps game render handleKeys update
 
      return ()

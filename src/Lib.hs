@@ -6,7 +6,6 @@ module Lib (
 ) where
 
 import Graphics.Gloss.Data.Picture
-import Data.Maybe
 
 type Coord = (Int, Int)
 
@@ -14,12 +13,11 @@ data Game = Game
                 {sokobanMaps :: [SokobanMap]
                 ,currMap     :: SokobanMap
                 ,backupMap   :: SokobanMap
+                ,stateBackup :: SokobanMap
                 ,currNumber  :: Int
                 ,menu        :: Menu
                 ,state       :: Int   -- 0 if currMap, 1 if Menu
                 ,scaleAll    :: Float
-				,steps		 :: Int
-				,labelSteps  :: Picture
                 } deriving Show
 
 data Menu = Menu
@@ -40,8 +38,8 @@ data SokobanMap = SokobanMap
                           ,darkboxes :: [Coord]
                           ,spaces    :: [Coord]
                           ,player    :: Coord
+                          ,steps     :: Int
                           ,textures  :: MapTextures
-                          ,previousMap :: Maybe SokobanMap
                           } deriving Show
 
 data MapTextures = MapTextures
