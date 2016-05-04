@@ -5,6 +5,9 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Pure.Game
 import Graphics.Gloss.Data.Bitmap()
 import Graphics.Gloss.Data.Picture()
+--import Control.Monad
+--import Control.Monad.Trans
+--import Control.Monad.List
 
 {-}
 -- | Play a game in a window.
@@ -29,6 +32,7 @@ fps = 60
 
 update :: Float -> Game -> Game
 update _ game = game
+					--{time = liftIO getTicks}
 
 --drawing :: Picture -> Picture
 --drawing bitMap = pictures[bitMap, translate (-60) (-60) bitMap, translate 60 60 $ scale 2 2 bitMap]
@@ -36,26 +40,16 @@ update _ game = game
 
 type Coord = (Int, Int)
 
---emptyMap = SokobanMap
---                   {size      = 50
---                   ,walls     = []
---                   ,targets   = []
---                   ,boxes     = []
---                   ,darkboxes = []
---                   ,spaces    = []
---                   ,player    = (0,0)
---                   ,steps     = 0
---                   }
 loadMapWithTextures :: MapTextures -> SokobanMap
 loadMapWithTextures  _textures = SokobanMap
-                                {size      = 50
-                                ,walls     = []
-                                ,targets   = []
-                                ,boxes     = []
-                                ,darkboxes = []
-                                ,spaces    = []
-                                ,player    = (0,0)
-                                ,textures = _textures
+                                {size        = 50
+                                ,walls       = []
+                                ,targets     = []
+                                ,boxes       = []
+                                ,darkboxes   = []
+                                ,spaces      = []
+                                ,player      = (0,0)
+                                ,textures    = _textures
                                 ,previousMap = Nothing
                                 }
 
@@ -102,8 +96,8 @@ loadLevels (x : xs) buf
       | x == '}'              = buf : (loadLevels xs [])
       | otherwise             = loadLevels xs (buf ++ x : [])
 
-makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Int -> Game
-makeGame menuStruct maps curr savedMap savedState num step_num = Game {sokobanMaps = maps
+makeGame :: Menu -> [SokobanMap] -> SokobanMap -> SokobanMap -> SokobanMap -> Int -> Int -> Float -> Game
+makeGame menuStruct maps curr savedMap savedState num step_num s_time = Game {sokobanMaps = maps
                                                              ,currMap     = curr
                                                              ,backupMap   = savedMap
                                                              ,currNumber  = num
@@ -111,8 +105,9 @@ makeGame menuStruct maps curr savedMap savedState num step_num = Game {sokobanMa
                                                              ,state       = 0
                                                              ,scaleAll    = 1.0
 															 ,steps		  = step_num
-															 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
-                                                             }
+															 ,labelSteps  = show_steps step_num
+                                                             ,time        = s_time
+															 }
 
 makeMenu :: Picture -> Menu
 makeMenu menuBg = Menu {menuBackground   = menuBg
@@ -159,6 +154,9 @@ render game
             darkboxObjs= makeObjs (darkboxes mapStruct)      (darkboxTexture objsTexture) sizeX sizeY resize
             playerObj  = makeObjs ((player mapStruct) : [])  (playerTexture  objsTexture) sizeX sizeY resize
 
+show_steps :: Int -> Picture
+show_steps step_num = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show step_num)
+
 convert :: Int -> Float
 convert x = fromIntegral (x :: Int) :: Float
 
@@ -182,7 +180,7 @@ showMenu game
   where st = (state game)
 
 loadNextLevel :: Game -> Game
-loadNextLevel game = game {currMap = newMap, backupMap = newMap, currNumber = num, steps = 0}
+loadNextLevel game = game {currMap = newMap, backupMap = newMap, currNumber = num, steps = 0, time = 0}
                       where
                         maps = (sokobanMaps game)
                         num = ((currNumber game) + 1) `mod` (length maps)
@@ -193,19 +191,20 @@ startFromBegin game = game {currMap     = firstMap
                            ,backupMap   = firstMap
                            ,currNumber  = 0
 					       ,steps       = 0
-						   ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text "0"
+						   ,labelSteps  = show_steps 0
+						   ,time        = 0
                            }
                       where
                         maps = (sokobanMaps game)
                         firstMap = maps !! 0
 
 reloadLevel :: Game -> Game
-reloadLevel game = game {currMap = savedMap, steps = 0 ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text "0"}
+reloadLevel game = game {currMap = savedMap, steps = 0 ,labelSteps  = show_steps 0, time = 0}
                    where
                      savedMap = (backupMap game)
 
 makeStepBack :: Game -> Game
-makeStepBack game = game {currMap = savedState, steps = (steps game) - 1 , labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show ((steps game) - 1))}
+makeStepBack game = game {currMap = savedState, steps = (steps game) - 1 , labelSteps  = show_steps ((steps game) - 1)}
                     where
                       savedState = case (previousMap (currMap game)) of
                         Nothing -> (currMap game)
@@ -289,7 +288,7 @@ action game newCoord followCoord
                                                 ,previousMap = Just mapStruct
                                                 }
 												,steps = stepNumber + 1
-												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+												,labelSteps  = show_steps (stepNumber + 1)
 												
                           }
 
@@ -302,17 +301,16 @@ action game newCoord followCoord
                                                ,previousMap = Just mapStruct	
                                                }
 											   ,steps = stepNumber + 1
-											   ,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+											   ,labelSteps  = show_steps (stepNumber + 1)
                           }
 
 
 
         | otherwise = game {currMap = mapStruct {player = newCoord
-                                                --,steps = stepNumber + 1
                                                 ,previousMap = Just mapStruct
                                                 }
 												,steps = stepNumber + 1
-												,labelSteps  = translate (-30)    230 $ scale 0.4 0.4 $ color white $ text (show (stepNumber + 1))
+												,labelSteps  = show_steps (stepNumber + 1)
                            }
         where
            mapStruct        = (currMap game)
@@ -363,7 +361,7 @@ main = do
      menuBg <- loadBMP "./images/menuBg.bmp"
 
      _menu <- return (makeMenu menuBg)
-     game <- return (makeGame _menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0 0)
+     game <- return (makeGame _menu levels (levels !! 0) (levels !! 0) (levels !! 0) 0 0 0)
      play window background fps game render handleKeys update
 
      return ()
